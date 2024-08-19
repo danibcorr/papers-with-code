@@ -1,4 +1,4 @@
-# 🚀 papersML
+# 🚀 papersDL
 
 Implementation of scientific papers on deep learning, mostly developed using Tensorflow.
 
