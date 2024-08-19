@@ -1,225 +1,241 @@
+# --------------------------------------------------------------------------------------------
+# LIBRARIES
+# --------------------------------------------------------------------------------------------
+
 import tensorflow as tf
-from tensorflow.keras import layers, datasets, losses
+from tensorflow.keras import layers, models
 import numpy as np
-import pandas as pd
-from sklearn.preprocessing import normalize
-import matplotlib.pyplot as plt
-from keras.utils.np_utils import to_categorical
-from skimage.transform import resize
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from tensorflow.keras.preprocessing import image as image_utils
 
-# Comprobamos si tenemos una GPU disponible
-tf.config.list_physical_devices('GPU')
+# --------------------------------------------------------------------------------------------
+# CLASS DEFINITIONS
+# --------------------------------------------------------------------------------------------
 
-class Bloque_Conv(layers.Layer):
+@keras.saving.register_keras_serializable(package='ConvBlock')
+class ConvBlock(layers.Layer):
 
-    def __init__(self, num_filtros, tam_kernel, stride):
+    """
+    A convolutional block consisting of a Conv2D layer followed by BatchNormalization.
+    
+    Attributes:
+        num_filters (int): Number of filters in the Conv2D layer.
+        kernel_size (int): Size of the kernel in the Conv2D layer.
+        stride (int): Stride length of the Conv2D layer.
+    """
 
-        super().__init__()
+    def __init__(self, num_filters: int, kernel_size: int, stride: int):
 
-        self.capa_conv = models.Sequential([
-            layers.Conv2D(filters = num_filtros, kernel_size = tam_kernel, padding = 'same', strides = stride, activation = 'relu'),
+        """
+        Initializes the ConvBlock with specified number of filters, kernel size, and stride.
+        
+        Args:
+            num_filters (int): Number of filters in the Conv2D layer.
+            kernel_size (int): Size of the kernel in the Conv2D layer.
+            stride (int): Stride length of the Conv2D layer.
+        """
+
+        super(ConvBlock, self).__init__()
+
+        self.num_filters = num_filters
+        self.kernel_size = kernel_size
+        self.stride = stride
+
+        self.conv_layer = models.Sequential([
+            layers.Conv2D(filters=num_filters, kernel_size=kernel_size, padding='same', strides=stride, activation='relu'),
             layers.BatchNormalization()
         ])
-
-    def call(self, input_tensor):
-
-        return self.capa_conv(input_tensor)
-
-class Bloque_Inception(layers.Layer):
-
-    def __init__(self, num_fil_r1_1, num_fil_r2_1, num_fil_r2_3, num_fil_r3_1, num_fil_r3_5, num_fil_r4_1):
-
-        super().__init__()
-
-        self.rama_1 = Bloque_Conv(num_filtros = num_fil_r1_1, tam_kernel = 1, stride = 1)
-
-        self.rama_2 = models.Sequential([
-            Bloque_Conv(num_filtros = num_fil_r2_1, tam_kernel = 1, stride = 1),
-            Bloque_Conv(num_filtros = num_fil_r2_3, tam_kernel = 3, stride = 1)
-        ])
-
-        self.rama_3 = models.Sequential([
-            Bloque_Conv(num_filtros = num_fil_r3_1, tam_kernel = 1, stride = 1),
-            Bloque_Conv(num_filtros = num_fil_r3_5, tam_kernel = 5, stride = 1)
-        ])
-
-        self.rama_4 = models.Sequential([
-            layers.MaxPool2D(pool_size = 3, strides = 1, padding = 'same'),
-            Bloque_Conv(num_filtros = num_fil_r4_1, tam_kernel = 1, stride = 1)
-        ])
-
-    def call(self, input_tensor): 
     
-        return tf.concat([self.rama_1(input_tensor), self.rama_2(input_tensor), self.rama_3(input_tensor), self.rama_4(input_tensor)], axis = 3)
+    def get_config(self) -> dict:
 
-class GoogleLeNet(tf.keras.Model):
-
-    def __init__(self, num_clases):
-
-        super().__init__()
-
-        self.arquitectura = models.Sequential([
-            layers.Conv2D(input_shape = (224, 224, 3), padding = 'same', filters = 64, kernel_size = 7, strides = 2, activation = 'relu'),
-            layers.BatchNormalization(),
-            layers.MaxPool2D(pool_size = 3, strides = 2, padding = 'same'),
-            
-            Bloque_Conv(num_filtros = 192, tam_kernel = 3, stride = 1),
-            layers.MaxPool2D(pool_size = 3, strides = 2, padding = 'same'),
-            
-            Bloque_Inception(num_fil_r1_1 = 64, num_fil_r2_1 = 96, num_fil_r2_3 = 128, num_fil_r3_1 = 16, num_fil_r3_5 = 32, num_fil_r4_1 = 32),
-            Bloque_Inception(num_fil_r1_1 = 128, num_fil_r2_1 = 128, num_fil_r2_3 = 192, num_fil_r3_1 = 32, num_fil_r3_5 = 96, num_fil_r4_1 = 64),
-            layers.MaxPool2D(pool_size = 3, strides = 2, padding = 'same'),
-
-            Bloque_Inception(num_fil_r1_1 = 192, num_fil_r2_1 = 96, num_fil_r2_3 = 208, num_fil_r3_1 = 16, num_fil_r3_5 = 48, num_fil_r4_1 = 64),
-            Bloque_Inception(num_fil_r1_1 = 160, num_fil_r2_1 = 112, num_fil_r2_3 = 224, num_fil_r3_1 = 24, num_fil_r3_5 = 64, num_fil_r4_1 = 64),
-            Bloque_Inception(num_fil_r1_1 = 128, num_fil_r2_1 = 128, num_fil_r2_3 = 256, num_fil_r3_1 = 24, num_fil_r3_5 = 64, num_fil_r4_1 = 64),
-            Bloque_Inception(num_fil_r1_1 = 112, num_fil_r2_1 = 144, num_fil_r2_3 = 288, num_fil_r3_1 = 32, num_fil_r3_5 = 64, num_fil_r4_1 = 64),
-            Bloque_Inception(num_fil_r1_1 = 256, num_fil_r2_1 = 160, num_fil_r2_3 = 320, num_fil_r3_1 = 32, num_fil_r3_5 = 128, num_fil_r4_1 = 128),
-            layers.MaxPool2D(pool_size = 3, strides = 2, padding = 'same'),
-
-            Bloque_Inception(num_fil_r1_1 = 256, num_fil_r2_1 = 160, num_fil_r2_3 = 320, num_fil_r3_1 = 32, num_fil_r3_5 = 128, num_fil_r4_1 = 128),
-            Bloque_Inception(num_fil_r1_1 = 384, num_fil_r2_1 = 192, num_fil_r2_3 = 384, num_fil_r3_1 = 48, num_fil_r3_5 = 128, num_fil_r4_1 = 128),
-            layers.AveragePooling2D(pool_size = 7, strides = 1),
-
-            layers.Flatten(),
-            
-            layers.Dropout(rate = 0.4),
-
-            layers.Dense(units = 1000, activation = 'relu'),
-            layers.BatchNormalization(),
-
-            layers.Dense(units = num_clases, activation = 'sigmoid'),
-        ])
-
-class CallBack(tf.keras.callbacks.Callback):
-    
-    def on_epoch_end(self, epocas, logs = {}):
-    
-        if(logs.get('val_accuracy') >= 0.99): 
-            
-            print("\nSe alcanzo un 99% de precision, cancelamos el entrenamiento")
-            self.model.stop_training = True
-
-callback = CallBack()
-
-# Para la reducción del learning rate atenderemos a la métrica de la precisión del set de validación
-reducir_lr = tf.keras.callbacks.ReduceLROnPlateau(
-    monitor = 'val_accuracy', factor = 0.04,
-    patience = 8, min_lr = 1e-5, verbose = 1
-)
-
-callbacks = [callback, reducir_lr]
-
-# Hiperpámetros
-num_clases = 1
-lr = 1e-3
-tam_batch = 64
-num_epocas = 30
-
-modelo = GoogleLeNet(num_clases)
-modelo.arquitectura.summary()
-
-train_datagen = ImageDataGenerator(
-    rescale = 1./255,
-    vertical_flip = True,
-    rotation_range = 45,  
-    zoom_range = 0.1,  
-    width_shift_range = 0.1,  
-    height_shift_range = 0.1, 
-    horizontal_flip = True, 
-    brightness_range = (0.4, 0.75)
-)  
-
-valid_datagen = ImageDataGenerator(
-    rescale = 1./255
-)
-
-train_dir = 'D:/Datasets/dogs-vs-cats/train/'
-valid_dir = 'D:/Datasets/dogs-vs-cats/validation/'
-
-train_generator = train_datagen.flow_from_directory(
-    train_dir,
-    batch_size = tam_batch,
-    class_mode = "binary",
-    target_size = (224, 224)
-)
-
-valid_generator = valid_datagen.flow_from_directory(
-    valid_dir,
-    batch_size = tam_batch,
-    class_mode = "binary",
-    target_size = (224, 224)
-)
-
-plt.figure(figsize = (10,10))
-
-for i in range(25):
-
-    img, label = train_generator.next()
-    plt.subplot(5, 5, i + 1)
-    plt.xticks([])
-    plt.yticks([])
-    plt.grid(False)
-    plt.imshow(img[i], cmap = 'gray')
-    
-    if label[i] == 0:
+        """
+        Returns the configuration of the ConvBlock layer.
         
-        plt.xlabel(f"Etiqueta: gato", color = 'white')
+        Returns:
+            dict: Configuration of the ConvBlock layer.
+        """
 
-    else:
+        return {'num_filters': self.num_filters, 'kernel_size': self.kernel_size, 'stride': self.stride}
 
-        plt.xlabel(f"Etiqueta: perro", color = 'white')
+    def call(self, input_tensor: tf.Tensor) -> tf.Tensor:
 
-plt.show()
+        """
+        Forward pass of the ConvBlock.
+        
+        Args:
+            input_tensor (tf.Tensor): Input tensor to the ConvBlock.
+        
+        Returns:
+            tf.Tensor: Output tensor after applying the Conv2D and BatchNormalization layers.
+        """
 
-modelo.arquitectura.compile(
-    optimizer = tf.optimizers.Adam(learning_rate = lr),
-    loss = losses.BinaryCrossentropy(), 
-    metrics = ['accuracy']
-)
+        return self.conv_layer(input_tensor)
 
-historia = modelo.arquitectura.fit(
-            train_generator,
-            steps_per_epoch = train_generator.samples // tam_batch,
-            epochs = num_epocas,
-            verbose = 1,
-            validation_data = valid_generator,
-            validation_steps = valid_generator.samples // tam_batch
-            )
+@keras.saving.register_keras_serializable(package='InceptionBlock')
+class InceptionBlock(layers.Layer):
 
-# Creamos una gráfica para mostrar el accuracy obtenido tanto en el set de entrenamiento como en el de validacion
-plt.plot(historia.history['accuracy'])
-plt.plot(historia.history['val_accuracy'])
-plt.grid(which = 'both', axis = 'both')
-plt.title('Precisión del modelo')
-plt.ylabel('Precisión')
-plt.xlabel('Época')
-plt.legend(['Entrenamiento', 'Test'], loc='upper right')
-plt.show()
+    """
+    An Inception block as described in the GoogLeNet architecture.
+    
+    Attributes:
+        num_fil_r1_1 (int): Number of filters for 1x1 convolution in the first branch.
+        num_fil_r2_1 (int): Number of filters for 1x1 convolution in the second branch.
+        num_fil_r2_3 (int): Number of filters for 3x3 convolution in the second branch.
+        num_fil_r3_1 (int): Number of filters for 1x1 convolution in the third branch.
+        num_fil_r3_5 (int): Number of filters for 5x5 convolution in the third branch.
+        num_fil_r4_1 (int): Number of filters for 1x1 convolution in the fourth branch.
+    """
 
-# Creamos una gráfica para mostrar la función de pérdida obtenida tanto en el set de entrenamiento como en el de validacion
-plt.plot(historia.history['loss'])
-plt.plot(historia.history['val_loss'])
-plt.grid(which = 'both', axis = 'both')
-plt.title('Pérdida del modelo')
-plt.ylabel('Pérdida')
-plt.xlabel('Época')
-plt.legend(['Entrenamiento', 'Test'], loc='upper right')
-plt.show()
+    def __init__(self, num_fil_r1_1: int, num_fil_r2_1: int, num_fil_r2_3: int, 
+                 num_fil_r3_1: int, num_fil_r3_5: int, num_fil_r4_1: int):
 
-# El primer valor obtenido corresponde con la pérdida, el segundo con el accuracy
-modelo.arquitectura.evaluate(valid_generator)
+        """
+        Initializes the InceptionBlock with specified number of filters for each branch.
+        
+        Args:
+            num_fil_r1_1 (int): Number of filters for 1x1 convolution in the first branch.
+            num_fil_r2_1 (int): Number of filters for 1x1 convolution in the second branch.
+            num_fil_r2_3 (int): Number of filters for 3x3 convolution in the second branch.
+            num_fil_r3_1 (int): Number of filters for 1x1 convolution in the third branch.
+            num_fil_r3_5 (int): Number of filters for 5x5 convolution in the third branch.
+            num_fil_r4_1 (int): Number of filters for 1x1 convolution in the fourth branch.
+        """
 
-foto = 'C:/Users/Daniel/Desktop/adios.jpg'
+        super(InceptionBlock, self).__init__()
 
-image = image_utils.load_img(foto, target_size=(224,224))
-plt.imshow(image)
+        self.num_fil_r1_1 = num_fil_r1_1
+        self.num_fil_r2_1 = num_fil_r2_1
+        self.num_fil_r2_3 = num_fil_r2_3
+        self.num_fil_r3_1 = num_fil_r3_1
+        self.num_fil_r3_5 = num_fil_r3_5
+        self.num_fil_r4_1 = num_fil_r4_1
 
-image = image_utils.img_to_array(image)
-image = image.reshape(1, 224, 224, 3)
-image = image / 255.
+        self.branch_1 = ConvBlock(num_filters=num_fil_r1_1, kernel_size=1, stride=1)
 
-prediction = modelo.arquitectura.predict(image)
-print(prediction)
+        self.branch_2 = models.Sequential([
+            ConvBlock(num_filters=num_fil_r2_1, kernel_size=1, stride=1),
+            ConvBlock(num_filters=num_fil_r2_3, kernel_size=3, stride=1)
+        ])
+
+        self.branch_3 = models.Sequential([
+            ConvBlock(num_filters=num_fil_r3_1, kernel_size=1, stride=1),
+            ConvBlock(num_filters=num_fil_r3_5, kernel_size=5, stride=1)
+        ])
+
+        self.branch_4 = models.Sequential([
+            layers.MaxPool2D(pool_size=3, strides=1, padding='same'),
+            ConvBlock(num_filters=num_fil_r4_1, kernel_size=1, stride=1)
+        ])
+
+    def get_config(self) -> dict:
+
+        """
+        Returns the configuration of the InceptionBlock layer.
+        
+        Returns:
+            dict: Configuration of the InceptionBlock layer.
+        """
+
+        return {'num_fil_r1_1': self.num_fil_r1_1, 'num_fil_r2_1': self.num_fil_r2_1, 'num_fil_r2_3': self.num_fil_r2_3,
+                'num_fil_r3_1': self.num_fil_r3_1, 'num_fil_r3_5': self.num_fil_r3_5, 'num_fil_r4_1': self.num_fil_r4_1}
+
+    def call(self, input_tensor: tf.Tensor) -> tf.Tensor:
+
+        """
+        Forward pass of the InceptionBlock.
+        
+        Args:
+            input_tensor (tf.Tensor): Input tensor to the InceptionBlock.
+        
+        Returns:
+            tf.Tensor: Concatenated output of all branches.
+        """
+
+        return tf.concat([
+            self.branch_1(input_tensor),
+            self.branch_2(input_tensor),
+            self.branch_3(input_tensor),
+            self.branch_4(input_tensor)
+        ], axis=3)
+
+@keras.saving.register_keras_serializable(package='GoogLeNet')
+class GoogLeNet(tf.keras.Model):
+
+    """
+    Implementation of the GoogLeNet (Inception v1) architecture.
+    
+    Attributes:
+        input_shape (tuple): Shape of the input tensor.
+        num_classes (int): Number of output classes for classification.
+    """
+
+    def __init__(self, input_shape: tuple = (224, 224, 3), num_classes: int = 10):
+
+        """
+        Initializes the GoogLeNet model with specified input shape and number of classes.
+        
+        Args:
+            input_shape (tuple): Shape of the input tensor.
+            num_classes (int): Number of output classes for classification.
+        """
+
+        super(GoogLeNet, self).__init__()
+
+        self.input_shape = input_shape
+        self.num_classes = num_classes
+
+        self.architecture = models.Sequential([
+            # Initial layers
+            layers.Conv2D(filters=64, kernel_size=7, strides=2, padding='same', activation='relu', input_shape=input_shape),
+            layers.BatchNormalization(),
+            layers.MaxPool2D(pool_size=3, strides=2, padding='same'),
+            
+            ConvBlock(num_filters=192, kernel_size=3, stride=1),
+            layers.MaxPool2D(pool_size=3, strides=2, padding='same'),
+            
+            # Inception blocks
+            InceptionBlock(num_fil_r1_1=64, num_fil_r2_1=96, num_fil_r2_3=128, num_fil_r3_1=16, num_fil_r3_5=32, num_fil_r4_1=32),
+            InceptionBlock(num_fil_r1_1=128, num_fil_r2_1=128, num_fil_r2_3=192, num_fil_r3_1=32, num_fil_r3_5=96, num_fil_r4_1=64),
+            layers.MaxPool2D(pool_size=3, strides=2, padding='same'),
+
+            InceptionBlock(num_fil_r1_1=192, num_fil_r2_1=96, num_fil_r2_3=208, num_fil_r3_1=16, num_fil_r3_5=48, num_fil_r4_1=64),
+            InceptionBlock(num_fil_r1_1=160, num_fil_r2_1=112, num_fil_r2_3=224, num_fil_r3_1=24, num_fil_r3_5=64, num_fil_r4_1=64),
+            InceptionBlock(num_fil_r1_1=128, num_fil_r2_1=128, num_fil_r2_3=256, num_fil_r3_1=24, num_fil_r3_5=64, num_fil_r4_1=64),
+            InceptionBlock(num_fil_r1_1=112, num_fil_r2_1=144, num_fil_r2_3=288, num_fil_r3_1=32, num_fil_r3_5=64, num_fil_r4_1=64),
+            InceptionBlock(num_fil_r1_1=256, num_fil_r2_1=160, num_fil_r2_3=320, num_fil_r3_1=32, num_fil_r3_5=128, num_fil_r4_1=128),
+            layers.MaxPool2D(pool_size=3, strides=2, padding='same'),
+
+            InceptionBlock(num_fil_r1_1=256, num_fil_r2_1=160, num_fil_r2_3=320, num_fil_r3_1=32, num_fil_r3_5=128, num_fil_r4_1=128),
+            InceptionBlock(num_fil_r1_1=384, num_fil_r2_1=192, num_fil_r2_3=384, num_fil_r3_1=48, num_fil_r3_5=128, num_fil_r4_1=128),
+            layers.AveragePooling2D(pool_size=7, strides=1),
+
+            # Final layers
+            layers.Flatten(),
+            layers.Dropout(rate=0.4),
+            layers.Dense(units=1000, activation='relu'),
+            layers.BatchNormalization(),
+            layers.Dense(units=num_classes, activation='sigmoid'),
+        ])
+
+    def get_config(self) -> dict:
+        
+        """
+        Returns the configuration of the GoogLeNet model.
+        
+        Returns:
+            dict: Configuration of the GoogLeNet model.
+        """
+
+        return {'input_shape': self.input_shape, 'num_classes': self.num_classes}
+
+    def call(self, inputs: tf.Tensor) -> tf.Tensor:
+
+        """
+        Forward pass of the GoogLeNet model.
+        
+        Args:
+            inputs (tf.Tensor): Input tensor to the GoogLeNet model.
+        
+        Returns:
+            tf.Tensor: Output tensor after applying the network.
+        """
+        
+        return self.architecture(inputs)

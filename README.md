@@ -1,12 +1,12 @@
 # 🚀 papersML
 
-Implementación de artículos científicos sobre aprendizaje profundo, en su mayoría desarrollados utilizando Tensorflow.
+Implementation of scientific papers on deep learning, mostly developed using Tensorflow.
 
-## 📄 Índice
+## 📄 Index
 
-### 👀 Computación Visual
+### 👀 Computer Vision
 
-| Paper                                                                 | Código                                |
+| Paper                                                                 | Code                                |
 |-----------------------------------------------------------------------|---------------------------------------|
 | [Truly Shift-Invariant Convolutional Neural Networks](https://arxiv.org/pdf/2011.14214) | [APS.py](cv/APS.py)                   |
 | [EfficientDet: Scalable and Efficient Object Detection](https://arxiv.org/pdf/1911.09070) | [BiFPN.py](cv/BiFPN.py)               |
@@ -22,22 +22,22 @@ Implementación de artículos científicos sobre aprendizaje profundo, en su may
 | [CutMix: Regularization Strategy to Train Strong Classifiers with Localizable Features](https://arxiv.org/pdf/1905.04899) | [CutMix.py](cv/CutMix.py)                   |
 | [mixup: BEYOND EMPIRICAL RISK MINIMIZATION](https://arxiv.org/pdf/1710.09412) | [MixUp.py](cv/MixUp.py)                   |
 
-### 📉 Funciones de pérdida
+### 📉 Loss functions
 
-| Paper                                                                 | Código                                |
+| Paper                                                                 | Code                                |
 |-----------------------------------------------------------------------|---------------------------------------|
 | [Contractive Auto-Encoders: Explicit Invariance During Feature Extraction](http://www.icml-2011.org/papers/455_icmlpaper.pdf) | [ContractiveLoss.py](losses/ContractiveLoss.py)                   |
 | [Supervised Contrastive Learning](https://arxiv.org/pdf/2004.11362) | [SupervisedContrastiveLoss.py](losses/SupervisedContrastiveLoss.py)               |
 
-### 🪛 Optimizadores
+### 🪛 Optimizers
 
-| Paper                                                                 | Código                                |
+| Paper                                                                 | Code                                |
 |-----------------------------------------------------------------------|---------------------------------------|
 | [AUTOCLIP: ADAPTIVE GRADIENT CLIPPING FOR SOURCE SEPARATION NETWORKS](https://arxiv.org/pdf/2007.14469) | [AGC.py](optimizers/AGC.py)                   |
 | [Gradient Centralization: A New Optimization Technique for Deep Neural Networks](https://arxiv.org/pdf/2004.01461) | [GCAdamW.py](optimizers/GCAdamW.py)               |
 
-### ➿ Schedulers del ratio de aprendizaje
+### ➿ Learning rate schedulers
 
-| Paper                                                                 | Código                                |
+| Paper                                                                 | Code                                |
 |-----------------------------------------------------------------------|---------------------------------------|
 | [SGDR: STOCHASTIC GRADIENT DESCENT WITH WARM RESTARTS](https://arxiv.org/pdf/1608.03983) | [WarmUpCosine.py](schedulers/WarmUpCosine.py)                   |

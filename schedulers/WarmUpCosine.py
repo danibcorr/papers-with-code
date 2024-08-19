@@ -14,9 +14,18 @@ class WarmUpCosine(keras.optimizers.schedules.LearningRateSchedule):
 
     """
     Custom learning rate schedule that combines warm-up and cosine annealing.
+
+    The learning rate increases linearly during the warm-up phase and then decreases 
+    according to a cosine schedule.
+
+    Attributes:
+        lr_start (float): Initial learning rate.
+        lr_max (float): Maximum learning rate.
+        warmup_steps (int): Number of warm-up steps.
+        total_steps (int): Total number of steps.
     """
 
-    def __init__(self, lr_start, lr_max, warmup_steps, total_steps):
+    def __init__(self, lr_start: float, lr_max: float, warmup_steps: int, total_steps: int):
 
         """
         Initializes the WarmUpCosine learning rate schedule.
@@ -36,7 +45,7 @@ class WarmUpCosine(keras.optimizers.schedules.LearningRateSchedule):
         self.total_steps = total_steps
         self.pi = tf.constant(np.pi)
 
-    def __call__(self, step):
+    def call(self, step: tf.Tensor) -> tf.Tensor:
 
         """
         Computes the learning rate for a given step.
@@ -78,7 +87,7 @@ class WarmUpCosine(keras.optimizers.schedules.LearningRateSchedule):
         # Clip learning rate to 0.0 if step exceeds total_steps
         return tf.where(step > self.total_steps, 0.0, learning_rate, name="learning_rate")
 
-    def get_config(self):
+    def get_config(self) -> dict:
 
         """
         Gets configuration parameters of the learning rate schedule.

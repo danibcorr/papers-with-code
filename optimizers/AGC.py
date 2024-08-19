@@ -10,7 +10,7 @@ import tensorflow as tf
 # https://arxiv.org/abs/2102.06171
 # --------------------------------------------------------------------------------------------
 
-def compute_norm(x, axis, keepdims):
+def compute_norm(x: tf.Tensor, axis, keepdims: bool) -> tf.Tensor:
 
     """
     Computes the norm of the input tensor along the specified axis.
@@ -26,7 +26,7 @@ def compute_norm(x, axis, keepdims):
 
     return tf.math.reduce_sum(x ** 2, axis=axis, keepdims=keepdims) ** 0.5
 
-def unitwise_norm(x):
+def unitwise_norm(x: tf.Tensor) -> tf.Tensor:
 
     """
     Computes the unit-wise norm of the input tensor.
@@ -61,7 +61,7 @@ def unitwise_norm(x):
 
     return compute_norm(x, axis, keepdims)
 
-def adaptive_clip_grad(parameters, gradients, clip_factor=0.01, eps=1e-3):
+def adaptive_clip_grad(parameters: list or tf.Tensor, gradients: list or tf.Tensor, clip_factor: float = 0.01, eps: float = 1e-3) -> list or tf.Tensor:
 
     """
     Applies adaptive gradient clipping to the gradients.

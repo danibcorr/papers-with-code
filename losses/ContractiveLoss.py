@@ -9,19 +9,19 @@ import tensorflow as tf
 # https://arxiv.org/pdf/1412.5068v4.pdf
 # --------------------------------------------------------------------------------------------
 
-def contractive_loss(x, x_hat, encoder, lam = 1e-4):
+def contractive_loss(x: tf.Tensor, x_hat: tf.Tensor, encoder: tf.keras.Model, lam: float = 1e-4) -> tf.Tensor:
 
     """
     This function computes the contractive loss for an autoencoder.
 
-    Parameters:
-    - x (Tensor): Original input tensor.
-    - x_hat (Tensor): Reconstructed tensor.
-    - encoder (Model): Encoder part of the autoencoder.
-    - lam (float, optional): Regularization parameter. Defaults to 1e-4.
+    Args:
+        x (tf.Tensor): Original input tensor.
+        x_hat (tf.Tensor): Reconstructed tensor.
+        encoder (tf.keras.Model): Encoder part of the autoencoder.
+        lam (float, optional): Regularization parameter. Defaults to 1e-4.
 
     Returns:
-    - Tensor: The contractive loss.
+        Tensor: The contractive loss.
     """
 
     # Compute the reconstruction loss

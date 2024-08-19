@@ -10,17 +10,17 @@ import tensorflow as tf
 # --------------------------------------------------------------------------------------------
 
 @tf.function
-def npairs_loss(y_true, y_pred):
+def npairs_loss(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
 
     """
     This function computes the npairs loss between the true and predicted labels.
 
-    Parameters:
-    - y_true (Tensor): True labels.
-    - y_pred (Tensor): Predicted labels.
+    Args:
+        y_true (Tensor): True labels.
+        y_pred (Tensor): Predicted labels.
 
     Returns:
-    - Tensor: The npairs loss.
+        Tensor: The npairs loss.
     """
 
     # Convert the inputs to tensors
@@ -49,24 +49,23 @@ class SupervisedContrastiveLoss(tf.keras.losses.Loss):
     - temperature (float): The temperature parameter for the contrastive loss. Defaults to 1.
     """
 
-    def __init__(self, temperature = 1, name = None):
+    def __init__(self, temperature: float = 1.0, name: str = None):
 
-        super().__init__(name = name)
+        super(SupervisedContrastiveLoss, self).__init__(name = name)
 
         self.temperature = temperature
 
-    def call(self, labels, embeddings, sample_weight = None):
+    def call(self, labels: tf.Tensor, embeddings: tf.Tensor) -> tf.Tensor:
 
         """
         This method computes the SCL loss.
 
-        Parameters:
-        - labels (Tensor): The true labels.
-        - embeddings (Tensor): The embeddings produced by the model.
-        - sample_weight (Tensor, optional): Optional sample weights.
+        Args:
+            labels (Tensor): The true labels.
+            embeddings (Tensor): The embeddings produced by the model.
 
         Returns:
-        - Tensor: The SCL loss.
+            Tensor: The SCL loss.
         """
 
         # Normalize the embeddings
