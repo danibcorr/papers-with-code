@@ -1,4 +1,4 @@
-# 🚀 papersDL
+# 🚀 Papers with Code
 
 Implementation of scientific papers on deep learning, mostly developed using Tensorflow.
 
