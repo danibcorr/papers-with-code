@@ -1,23 +1,17 @@
-# --------------------------------------------------------------------------------------------
-# LIBRARIES
-# --------------------------------------------------------------------------------------------
-
 import tensorflow as tf
 
 # --------------------------------------------------------------------------------------------
-# CLASS DEFINITIONS
 # https://keras.io/examples/vision/gradient_centralization/
 # https://arxiv.org/abs/2004.01461
 # --------------------------------------------------------------------------------------------
 
-class GCAdamW(tf.keras.optimizers.AdamW):
 
+class GCAdamW(tf.keras.optimizers.AdamW):
     """
     Gradient Centralization Optimizer for AdamW.
     """
 
     def __init__(self, name: str = "GCAdamW", **kwargs):
-
         """
         Initializes the Gradient Centralization Optimizer.
 
@@ -28,8 +22,9 @@ class GCAdamW(tf.keras.optimizers.AdamW):
 
         super(GCAdamW, self).__init__(name, **kwargs)
 
-    def get_gradients(self, loss: tf.Tensor, params: list or tf.Tensor) -> list or tf.Tensor:
-
+    def get_gradients(
+        self, loss: tf.Tensor, params: list or tf.Tensor
+    ) -> list or tf.Tensor:
         """
         Computes the gradients with gradient centralization.
 

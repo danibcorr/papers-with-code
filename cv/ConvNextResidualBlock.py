@@ -1,18 +1,12 @@
-# --------------------------------------------------------------------------------------------
-# LIBRARIES
-# --------------------------------------------------------------------------------------------
-
+import tensorflow as tf
+import tensorflow_probability as tfp
 from tensorflow.keras import layers
 from tensorflow import keras
+
 from .APS import CircularPad
 from .SE import SqueezeAndExcitation
 from .CBAM import CBAM
-import tensorflow as tf
-import tensorflow_probability as tfp
 
-# --------------------------------------------------------------------------------------------
-# KERNEL AND BIAS INITIALIZATION
-# --------------------------------------------------------------------------------------------
 
 kernel_initial = tf.keras.initializers.TruncatedNormal(stddev=0.2, seed=42)
 bias_initial = tf.keras.initializers.Constant(value=0)
@@ -22,165 +16,195 @@ bias_initial = tf.keras.initializers.Constant(value=0)
 # References:
 # https://arxiv.org/pdf/2201.03545.pdf
 # https://keras.io/api/keras_cv/layers/regularization/stochastic_depth/
-# -------------------------------------------------------------------------------------------- 
+# --------------------------------------------------------------------------------------------
 
-@keras.saving.register_keras_serializable(package='StochasticDepthResidual')
+
+@keras.saving.register_keras_serializable(package="StochasticDepthResidual")
 class StochasticDepthResidual(layers.Layer):
+    """
+    Implements Stochastic Depth for residual connections.
+    """
 
-   """
-   Implements Stochastic Depth for residual connections.
-   """
+    def __init__(self, rate: float = 0.25, **kwargs):
+        """
+        Initializes the StochasticDepthResidual layer.
 
-   def __init__(self, rate: float = 0.25, **kwargs):
+        Args:
+            rate (float): Drop rate for stochastic depth.
+            **kwargs: Additional keyword arguments for the parent class.
+        """
+        super(StochasticDepthResidual, self).__init__(**kwargs)
 
-       """
-       Initializes the StochasticDepthResidual layer.
+        self.rate = rate
+        self.survival_probability = 1.0 - self.rate
 
-       Args:
-           rate (float): Drop rate for stochastic depth.
-           **kwargs: Additional keyword arguments for the parent class.
-       """
-       super(StochasticDepthResidual, self).__init__(**kwargs)
+    def call(self, x: list, training: bool = None) -> tf.Tensor:
+        """
+        Applies stochastic depth to the residual connection.
 
-       self.rate = rate
-       self.survival_probability = 1.0 - self.rate
+        Args:
+            x (list): List containing [shortcut, residual].
+            training (bool): Whether in training mode or not.
 
-   def call(self, x: list, training: bool = None) -> tf.Tensor:
+        Returns:
+            tf.Tensor: Output after applying stochastic depth.
 
-       """
-       Applies stochastic depth to the residual connection.
+        Raises:
+            ValueError: If input is not a list of length 2.
+        """
 
-       Args:
-           x (list): List containing [shortcut, residual].
-           training (bool): Whether in training mode or not.
+        if len(x) != 2:
 
-       Returns:
-           tf.Tensor: Output after applying stochastic depth.
+            raise ValueError(
+                f"Input must be a list of length 2, got input with length={len(x)}."
+            )
 
-       Raises:
-           ValueError: If input is not a list of length 2.
-       """
+        shortcut, residual = x
 
-       if len(x) != 2:
+        b_l = keras.backend.random_bernoulli([], p=self.survival_probability)
 
-           raise ValueError(f"Input must be a list of length 2, got input with length={len(x)}.")
+        return (
+            shortcut + b_l * residual
+            if training
+            else shortcut + self.survival_probability * residual
+        )
 
-       shortcut, residual = x
+    def get_config(self) -> dict:
+        """
+        Returns the configuration of the layer.
 
-       b_l = keras.backend.random_bernoulli([], p=self.survival_probability)
+        Returns:
+            dict: Configuration dictionary.
+        """
 
-       return shortcut + b_l * residual if training else shortcut + self.survival_probability * residual
+        config = {"rate": self.rate}
+        base_config = super().get_config()
 
-   def get_config(self) -> dict:
+        return dict(list(base_config.items()) + list(config.items()))
 
-       """
-       Returns the configuration of the layer.
 
-       Returns:
-           dict: Configuration dictionary.
-       """
-
-       config = {"rate": self.rate}
-       base_config = super().get_config()
-
-       return dict(list(base_config.items()) + list(config.items()))
-
-@keras.saving.register_keras_serializable(package='ResidualBlock')
+@keras.saving.register_keras_serializable(package="ResidualBlock")
 class ResidualBlock(layers.Layer):
+    """
+    Implements a Residual Block with optional attention mechanisms.
+    """
 
-   """
-   Implements a Residual Block with optional attention mechanisms.
-   """
-   
-   def __init__(self, name: str, num_filters: int, drop_prob: float = 0.25, 
-                layer_scale_init_value: float = 1e-6, use_cbam: bool = False):
+    def __init__(
+        self,
+        name: str,
+        num_filters: int,
+        drop_prob: float = 0.25,
+        layer_scale_init_value: float = 1e-6,
+        use_cbam: bool = False,
+    ):
+        """
+        Initializes the ResidualBlock.
 
-       """
-       Initializes the ResidualBlock.
+        Args:
+            name (str): Name of the layer.
+            num_filters (int): Number of filters in the convolutional layers.
+            drop_prob (float): Drop probability for stochastic depth.
+            layer_scale_init_value (float): Initial value for layer scaling.
+            use_cbam (bool): Whether to use CBAM attention or SE attention.
+        """
 
-       Args:
-           name (str): Name of the layer.
-           num_filters (int): Number of filters in the convolutional layers.
-           drop_prob (float): Drop probability for stochastic depth.
-           layer_scale_init_value (float): Initial value for layer scaling.
-           use_cbam (bool): Whether to use CBAM attention or SE attention.
-       """
+        super(ResidualBlock, self).__init__()
 
-       super(ResidualBlock, self).__init__()
-       
-       self.name_layer = name
-       self.num_filters = num_filters
-       self.drop_prob = drop_prob
-       self.layer_scale_init_value = layer_scale_init_value
-       self.use_cbam = use_cbam
-       
-       self.attention = (CBAM(name=f"{self.name_layer}_CBAM") if use_cbam 
-                         else SqueezeAndExcitation(name=f"{self.name_layer}_se_input", num_filters=self.num_filters))
+        self.name_layer = name
+        self.num_filters = num_filters
+        self.drop_prob = drop_prob
+        self.layer_scale_init_value = layer_scale_init_value
+        self.use_cbam = use_cbam
 
-       self.layers = tf.keras.Sequential([
-           CircularPad(padding=(1, 1, 1, 1)),
-           layers.Conv2D(self.num_filters, kernel_size=7, groups=num_filters, 
-                         kernel_initializer=kernel_initial, bias_initializer=bias_initial, 
-                         name=f"{self.name_layer}_conv2d_7"),
-           layers.LayerNormalization(name=f"{self.name_layer}_layernorm"),
-           CircularPad(padding=(1, 1, 1, 1)),
-           layers.Conv2D(self.num_filters * 4, kernel_size=1, kernel_initializer=kernel_initial, 
-                         bias_initializer=bias_initial, name=f"{self.name_layer}_conv2d_4"),
-           layers.Activation('gelu', name=f"{self.name_layer}_activation"),
-           CircularPad(padding=(1, 1, 1, 1)),
-           layers.Conv2D(self.num_filters, kernel_size=1, kernel_initializer=kernel_initial, 
-                         bias_initializer=bias_initial, name=f"{self.name_layer}_conv2d_output")
-       ], name=f"Sequential_Residual_{self.name_layer}")
-       
-       self.layer_scale_gamma = None
-       
-       if self.layer_scale_init_value > 0:
+        self.attention = (
+            CBAM(name=f"{self.name_layer}_CBAM")
+            if use_cbam
+            else SqueezeAndExcitation(
+                name=f"{self.name_layer}_se_input", num_filters=self.num_filters
+            )
+        )
 
-           with tf.init_scope():
+        self.layers = tf.keras.Sequential(
+            [
+                CircularPad(padding=(1, 1, 1, 1)),
+                layers.Conv2D(
+                    self.num_filters,
+                    kernel_size=7,
+                    groups=num_filters,
+                    kernel_initializer=kernel_initial,
+                    bias_initializer=bias_initial,
+                    name=f"{self.name_layer}_conv2d_7",
+                ),
+                layers.LayerNormalization(name=f"{self.name_layer}_layernorm"),
+                CircularPad(padding=(1, 1, 1, 1)),
+                layers.Conv2D(
+                    self.num_filters * 4,
+                    kernel_size=1,
+                    kernel_initializer=kernel_initial,
+                    bias_initializer=bias_initial,
+                    name=f"{self.name_layer}_conv2d_4",
+                ),
+                layers.Activation("gelu", name=f"{self.name_layer}_activation"),
+                CircularPad(padding=(1, 1, 1, 1)),
+                layers.Conv2D(
+                    self.num_filters,
+                    kernel_size=1,
+                    kernel_initializer=kernel_initial,
+                    bias_initializer=bias_initial,
+                    name=f"{self.name_layer}_conv2d_output",
+                ),
+            ],
+            name=f"Sequential_Residual_{self.name_layer}",
+        )
 
-               self.layer_scale_gamma = tf.Variable(
-                   name=f"{self.name_layer}_gamma", 
-                   initial_value=self.layer_scale_init_value * tf.ones((self.num_filters))
-               )
+        self.layer_scale_gamma = None
 
-       self.stochastic_depth = StochasticDepthResidual(self.drop_prob)
+        if self.layer_scale_init_value > 0:
 
-   def get_config(self) -> dict:
+            with tf.init_scope():
 
-       """
-       Returns the configuration of the layer.
+                self.layer_scale_gamma = tf.Variable(
+                    name=f"{self.name_layer}_gamma",
+                    initial_value=self.layer_scale_init_value
+                    * tf.ones((self.num_filters)),
+                )
 
-       Returns:
-           dict: Configuration dictionary.
-       """
+        self.stochastic_depth = StochasticDepthResidual(self.drop_prob)
 
-       return {
-           'name': self.name_layer, 
-           'num_filters': self.num_filters, 
-           'drop_prob': self.drop_prob, 
-           'layer_scale_init_value': self.layer_scale_init_value,
-           'use_cbam': self.use_cbam
-       }
+    def get_config(self) -> dict:
+        """
+        Returns the configuration of the layer.
 
-   def call(self, inputs: tf.Tensor) -> tf.Tensor:
+        Returns:
+            dict: Configuration dictionary.
+        """
 
-       """
-       Forward pass of the ResidualBlock.
+        return {
+            "name": self.name_layer,
+            "num_filters": self.num_filters,
+            "drop_prob": self.drop_prob,
+            "layer_scale_init_value": self.layer_scale_init_value,
+            "use_cbam": self.use_cbam,
+        }
 
-       Args:
-           inputs (tf.Tensor): Input tensor.
+    def call(self, inputs: tf.Tensor) -> tf.Tensor:
+        """
+        Forward pass of the ResidualBlock.
 
-       Returns:
-           tf.Tensor: Output tensor after applying the residual block.
-       """
+        Args:
+            inputs (tf.Tensor): Input tensor.
 
-       x = self.layers(inputs)
+        Returns:
+            tf.Tensor: Output tensor after applying the residual block.
+        """
 
-       if self.layer_scale_gamma is not None:
+        x = self.layers(inputs)
 
-           x = x * self.layer_scale_gamma
-       
-       x = self.attention(x)
-       x = self.stochastic_depth([inputs, x])
-       
-       return x
+        if self.layer_scale_gamma is not None:
+
+            x = x * self.layer_scale_gamma
+
+        x = self.attention(x)
+        x = self.stochastic_depth([inputs, x])
+
+        return x

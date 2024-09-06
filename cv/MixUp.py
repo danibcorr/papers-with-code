@@ -1,17 +1,11 @@
-# --------------------------------------------------------------------------------------------
-# LIBRARIES
-# --------------------------------------------------------------------------------------------
-
 import numpy as np
 from numba import njit
 
-# --------------------------------------------------------------------------------------------
-# DEFINITIONS OF FUNCTIONS
-# --------------------------------------------------------------------------------------------
 
 @njit
-def sample_beta_distribution(size: int, concentration_0: float = 0.2, concentration_1: float = 0.2) -> np.ndarray:
-
+def sample_beta_distribution(
+    size: int, concentration_0: float = 0.2, concentration_1: float = 0.2
+) -> np.ndarray:
     """
     Samples from a beta distribution.
 
@@ -29,9 +23,9 @@ def sample_beta_distribution(size: int, concentration_0: float = 0.2, concentrat
 
     return gamma_1_sample / (gamma_1_sample + gamma_2_sample)
 
+
 @njit
 def mix_up(ds_one: tuple, ds_two: tuple, alpha: float = 0.2) -> tuple:
-
     """
     Performs mixup augmentation on a pair of datasets.
 
@@ -58,5 +52,5 @@ def mix_up(ds_one: tuple, ds_two: tuple, alpha: float = 0.2) -> tuple:
     # (one from each dataset) into one image/label
     images = images_one * x_l + images_two * (1 - x_l)
     labels = labels_one * y_l + labels_two * (1 - y_l)
-    
+
     return images, labels

@@ -1,304 +1,313 @@
-# --------------------------------------------------------------------------------------------
-# LIBRARIES
-# --------------------------------------------------------------------------------------------
-
+import tensorflow as tf
 from tensorflow.keras import layers
 from tensorflow import keras
-import tensorflow as tf
 
 # --------------------------------------------------------------------------------------------
-# CLASS DEFINITIONS
 # Reference: https://arxiv.org/pdf/1807.06521.pdf
 # --------------------------------------------------------------------------------------------
 
+
 class CircularPad(layers.Layer):
+    """
+    A custom layer to apply circular padding to the input tensor.
+    """
 
-   """
-   A custom layer to apply circular padding to the input tensor.
-   """
+    def __init__(self, padding: tuple = (1, 1, 1, 1)):
+        """
+        Initializes the CircularPad layer.
 
-   def __init__(self, padding: tuple = (1, 1, 1, 1)):
+        Args:
+            padding (tuple): Tuple specifying the padding sizes in the order (top, bottom, left, right).
+        """
 
-       """
-       Initializes the CircularPad layer.
+        super(CircularPad, self).__init__()
 
-       Args:
-           padding (tuple): Tuple specifying the padding sizes in the order (top, bottom, left, right).
-       """
+        self.pad_sizes = padding
 
-       super(CircularPad, self).__init__()
+    def call(self, x: tf.Tensor) -> tf.Tensor:
+        """
+        Applies circular padding to the input tensor.
 
-       self.pad_sizes = padding
+        Args:
+            x (tf.Tensor): Input tensor.
 
-   def call(self, x: tf.Tensor) -> tf.Tensor:
+        Returns:
+            tf.Tensor: Padded tensor.
+        """
 
-       """
-       Applies circular padding to the input tensor.
+        top_pad, bottom_pad, left_pad, right_pad = self.pad_sizes
 
-       Args:
-           x (tf.Tensor): Input tensor.
+        # Circular padding for height dimension
+        height_pad = tf.concat([x[:, -bottom_pad:], x, x[:, :top_pad]], axis=1)
 
-       Returns:
-           tf.Tensor: Padded tensor.
-       """
+        # Circular padding for width dimension
+        return tf.concat(
+            [height_pad[:, :, -right_pad:], height_pad, height_pad[:, :, :left_pad]],
+            axis=2,
+        )
 
-       top_pad, bottom_pad, left_pad, right_pad = self.pad_sizes
 
-       # Circular padding for height dimension
-       height_pad = tf.concat([x[:, -bottom_pad:], x, x[:, :top_pad]], axis=1)
-
-       # Circular padding for width dimension
-       return tf.concat([height_pad[:, :, -right_pad:], height_pad, height_pad[:, :, :left_pad]], axis=2)
-
-@keras.saving.register_keras_serializable(package='MaxMinImportance')
+@keras.saving.register_keras_serializable(package="MaxMinImportance")
 class MaxMinImportance(layers.Layer):
+    """
+    A custom layer to compute the weighted importance of max and min pooling.
+    """
 
-   """
-   A custom layer to compute the weighted importance of max and min pooling.
-   """
+    def __init__(self, name: str, **kwargs):
+        """
+        Initializes the MaxMinImportance layer.
 
-   def __init__(self, name: str, **kwargs):
+        Args:
+            name (str): Name of the layer.
+            **kwargs: Additional keyword arguments.
+        """
 
-       """
-       Initializes the MaxMinImportance layer.
+        super(MaxMinImportance, self).__init__(**kwargs)
 
-       Args:
-           name (str): Name of the layer.
-           **kwargs: Additional keyword arguments.
-       """
+        self.name_layer = name
 
-       super(MaxMinImportance, self).__init__(**kwargs)
+        # Initialize trainable weights with constraints
+        self.p0 = self.add_weight(
+            f"{self.name_layer}p0",
+            shape=(),
+            initializer="ones",
+            trainable=True,
+            constraint=lambda x: tf.clip_by_value(x, 0, 1),
+        )
+        self.p1 = self.add_weight(
+            f"{self.name_layer}p1",
+            shape=(),
+            initializer="ones",
+            trainable=True,
+            constraint=lambda x: tf.clip_by_value(x, 0, 1),
+        )
 
-       self.name_layer = name
+    def get_config(self) -> dict:
 
-       # Initialize trainable weights with constraints
-       self.p0 = self.add_weight(f"{self.name_layer}p0", shape=(), initializer='ones', trainable=True,
-                                 constraint=lambda x: tf.clip_by_value(x, 0, 1))
-       self.p1 = self.add_weight(f"{self.name_layer}p1", shape=(), initializer='ones', trainable=True,
-                                 constraint=lambda x: tf.clip_by_value(x, 0, 1))
+        return {"name": self.name_layer}
 
-   def get_config(self) -> dict:
+    def call(self, inputs: tuple) -> tf.Tensor:
+        """
+        Computes the weighted importance of max and min pooling.
 
-       return {'name': self.name_layer}
+        Args:
+            inputs (tuple): Tuple containing maxpool and minpool tensors.
 
-   def call(self, inputs: tuple) -> tf.Tensor:
+        Returns:
+            tf.Tensor: Weighted combination of maxpool and minpool.
+        """
 
-       """
-       Computes the weighted importance of max and min pooling.
+        maxpool, minpool = inputs
 
-       Args:
-           inputs (tuple): Tuple containing maxpool and minpool tensors.
+        # Calculate lambda and 1 - lambda for proportional weighting
+        lambda_val = self.p0**2 / (self.p0**2 + self.p1**2)
+        one_minus_lambda = self.p1**2 / (self.p0**2 + self.p1**2)
 
-       Returns:
-           tf.Tensor: Weighted combination of maxpool and minpool.
-       """
+        return lambda_val * maxpool + one_minus_lambda * minpool
 
-       maxpool, minpool = inputs
 
-       # Calculate lambda and 1 - lambda for proportional weighting
-       lambda_val = self.p0 ** 2 / (self.p0 ** 2 + self.p1 ** 2)
-       one_minus_lambda = self.p1 ** 2 / (self.p0 ** 2 + self.p1 ** 2)
-
-       return lambda_val * maxpool + one_minus_lambda * minpool
-
-@keras.saving.register_keras_serializable(package='GlobalMinPooling2D')
+@keras.saving.register_keras_serializable(package="GlobalMinPooling2D")
 class GlobalMinPooling2D(layers.Layer):
+    """
+    A custom layer to perform global min pooling on 2D inputs.
+    """
 
-   """
-   A custom layer to perform global min pooling on 2D inputs.
-   """
+    def __init__(self, **kwargs):
 
-   def __init__(self, **kwargs):
+        super(GlobalMinPooling2D, self).__init__(**kwargs)
 
-       super(GlobalMinPooling2D, self).__init__(**kwargs)
+    def call(self, inputs: tf.Tensor) -> tf.Tensor:
+        """
+        Performs global min pooling on the input tensor.
 
-   def call(self, inputs: tf.Tensor) -> tf.Tensor:
+        Args:
+            inputs (tf.Tensor): Input tensor.
 
-       """
-       Performs global min pooling on the input tensor.
+        Returns:
+            tf.Tensor: Global min pooled tensor.
+        """
 
-       Args:
-           inputs (tf.Tensor): Input tensor.
+        return tf.reduce_min(inputs, axis=[1, 2])
 
-       Returns:
-           tf.Tensor: Global min pooled tensor.
-       """
 
-       return tf.reduce_min(inputs, axis=[1, 2])
-
-@keras.saving.register_keras_serializable(package='ChannelAttentionModule')
+@keras.saving.register_keras_serializable(package="ChannelAttentionModule")
 class ChannelAttentionModule(layers.Layer):
+    """
+    Channel Attention Module for CBAM (Convolutional Block Attention Module).
+    """
 
-   """
-   Channel Attention Module for CBAM (Convolutional Block Attention Module).
-   """
+    def __init__(self, name: str, use_min: bool = False, ratio: int = 16):
+        """
+        Initializes the Channel Attention Module.
 
-   def __init__(self, name: str, use_min: bool = False, ratio: int = 16):
+        Args:
+            name (str): Name of the layer.
+            use_min (bool): Whether to use min pooling instead of average pooling.
+            ratio (int): Reduction ratio for the dense layers.
+        """
 
-       """
-       Initializes the Channel Attention Module.
+        super(ChannelAttentionModule, self).__init__()
 
-       Args:
-           name (str): Name of the layer.
-           use_min (bool): Whether to use min pooling instead of average pooling.
-           ratio (int): Reduction ratio for the dense layers.
-       """
+        self.name_layer = name
+        self.use_min = use_min
+        self.ratio = ratio
 
-       super(ChannelAttentionModule, self).__init__()
+        self.l1 = None
+        self.l2 = None
 
-       self.name_layer = name
-       self.use_min = use_min
-       self.ratio = ratio
+        # Choose between min pooling and average pooling
+        self.variable = (
+            GlobalMinPooling2D(name=f"GMinP_CAM_{name}")
+            if use_min
+            else layers.GlobalAveragePooling2D(name=f"GAveP_CAM_{name}")
+        )
+        self.gmp = layers.GlobalMaxPooling2D(name=f"GMaxP_CAM_{name}")
+        self.mmi = MaxMinImportance(name=f"MMI_CAM_{name}")
 
-       self.l1 = None
-       self.l2 = None
+        self.activation = layers.Activation("sigmoid", name=f"Activation_CAM_{name}")
 
-       # Choose between min pooling and average pooling
-       self.variable = GlobalMinPooling2D(name=f"GMinP_CAM_{name}") if use_min else layers.GlobalAveragePooling2D(name=f"GAveP_CAM_{name}")
-       self.gmp = layers.GlobalMaxPooling2D(name=f"GMaxP_CAM_{name}")
-       self.mmi = MaxMinImportance(name=f"MMI_CAM_{name}")
+    def get_config(self) -> dict:
 
-       self.activation = layers.Activation('sigmoid', name=f"Activation_CAM_{name}")
+        return {"name": self.name_layer, "use_min": self.use_min, "ratio": self.ratio}
 
-   def get_config(self) -> dict:
+    def build(self, input_shape):
 
-       return {'name': self.name_layer, 'use_min': self.use_min, 'ratio': self.ratio}
+        channel = input_shape[-1]
+        self.l1 = layers.Dense(channel // self.ratio, activation="relu", use_bias=False)
+        self.l2 = layers.Dense(channel, use_bias=False)
 
-   def build(self, input_shape):
+    def call(self, inputs: tf.Tensor) -> tf.Tensor:
+        """
+        Applies channel attention to the input tensor.
 
-       channel = input_shape[-1]
-       self.l1 = layers.Dense(channel // self.ratio, activation='relu', use_bias=False)
-       self.l2 = layers.Dense(channel, use_bias=False)
+        Args:
+            inputs (tf.Tensor): Input tensor.
 
-   def call(self, inputs: tf.Tensor) -> tf.Tensor:
+        Returns:
+            tf.Tensor: Channel-wise attended tensor.
+        """
 
-       """
-       Applies channel attention to the input tensor.
+        variable_pool = self.l2(self.l1(self.variable(inputs)))
+        maxpool = self.l2(self.l1(self.gmp(inputs)))
+        concat = self.activation(self.mmi([maxpool, variable_pool]))
 
-       Args:
-           inputs (tf.Tensor): Input tensor.
+        return layers.Multiply()([inputs, concat])
 
-       Returns:
-           tf.Tensor: Channel-wise attended tensor.
-       """
 
-       variable_pool = self.l2(self.l1(self.variable(inputs)))
-       maxpool = self.l2(self.l1(self.gmp(inputs)))
-       concat = self.activation(self.mmi([maxpool, variable_pool]))
-
-       return layers.Multiply()([inputs, concat])
-
-@keras.saving.register_keras_serializable(package='SpatialAttentionModule')
+@keras.saving.register_keras_serializable(package="SpatialAttentionModule")
 class SpatialAttentionModule(layers.Layer):
+    """
+    Spatial Attention Module for CBAM (Convolutional Block Attention Module).
+    """
 
-   """
-   Spatial Attention Module for CBAM (Convolutional Block Attention Module).
-   """
+    def __init__(self, name: str, use_min: bool = False):
+        """
+        Initializes the Spatial Attention Module.
 
-   def __init__(self, name: str, use_min: bool = False):
+        Args:
+            name (str): Name of the layer.
+            use_min (bool): Whether to use min pooling instead of average pooling.
+        """
 
-       """
-       Initializes the Spatial Attention Module.
+        super(SpatialAttentionModule, self).__init__()
 
-       Args:
-           name (str): Name of the layer.
-           use_min (bool): Whether to use min pooling instead of average pooling.
-       """
+        self.name_layer = name
+        self.use_min = use_min
 
-       super(SpatialAttentionModule, self).__init__()
+        self.padding = CircularPad((3, 3, 3, 3))
+        self.conv = layers.Conv2D(
+            1, kernel_size=7, activation="sigmoid", name=f"Conv2D_SAM_{name}"
+        )
 
-       self.name_layer = name
-       self.use_min = use_min
+    def get_config(self) -> dict:
 
-       self.padding = CircularPad((3, 3, 3, 3))
-       self.conv = layers.Conv2D(1, kernel_size=7, activation='sigmoid', name=f"Conv2D_SAM_{name}")
+        return {"name": self.name_layer, "use_min": self.use_min}
 
-   def get_config(self) -> dict:
+    def call(self, inputs: tf.Tensor) -> tf.Tensor:
+        """
+        Applies spatial attention to the input tensor.
 
-       return {'name': self.name_layer, 'use_min': self.use_min}
+        Args:
+            inputs (tf.Tensor): Input tensor.
 
-   def call(self, inputs: tf.Tensor) -> tf.Tensor:
+        Returns:
+            tf.Tensor: Spatially attended tensor.
+        """
 
-       """
-       Applies spatial attention to the input tensor.
+        variable_pool = (
+            tf.reduce_min(inputs, axis=-1)
+            if self.use_min
+            else tf.reduce_mean(inputs, axis=-1)
+        )
+        variable_pool = tf.expand_dims(variable_pool, axis=-1)
 
-       Args:
-           inputs (tf.Tensor): Input tensor.
+        maxpool = tf.reduce_max(inputs, axis=-1)
+        maxpool = tf.expand_dims(maxpool, axis=-1)
 
-       Returns:
-           tf.Tensor: Spatially attended tensor.
-       """
+        concat = layers.Concatenate()([variable_pool, maxpool])
+        conv = self.conv(self.padding(concat))
 
-       variable_pool = tf.reduce_min(inputs, axis=-1) if self.use_min else tf.reduce_mean(inputs, axis=-1)
-       variable_pool = tf.expand_dims(variable_pool, axis=-1)
+        return layers.Multiply()([inputs, conv])
 
-       maxpool = tf.reduce_max(inputs, axis=-1)
-       maxpool = tf.expand_dims(maxpool, axis=-1)
 
-       concat = layers.Concatenate()([variable_pool, maxpool])
-       conv = self.conv(self.padding(concat))
-
-       return layers.Multiply()([inputs, conv])
-
-@keras.saving.register_keras_serializable(package='CBAM')
+@keras.saving.register_keras_serializable(package="CBAM")
 class CBAM(layers.Layer):
+    """
+    Convolutional Block Attention Module (CBAM).
+    """
 
-   """
-   Convolutional Block Attention Module (CBAM).
-   """
+    def __init__(self, name: str, use_min: bool):
+        """
+        Initializes the CBAM layer.
 
-   def __init__(self, name: str, use_min: bool):
+        Args:
+            name (str): Name of the layer.
+            use_min (bool): Whether to use min pooling instead of average pooling.
+        """
 
-       """
-       Initializes the CBAM layer.
+        super(CBAM, self).__init__()
 
-       Args:
-           name (str): Name of the layer.
-           use_min (bool): Whether to use min pooling instead of average pooling.
-       """
+        self.name_layer = name
+        self.use_min = use_min
 
-       super(CBAM, self).__init__()
-       
-       self.name_layer = name
-       self.use_min = use_min
+        self.channel_attention = ChannelAttentionModule(name, use_min)
+        self.spatial_attention = SpatialAttentionModule(name, use_min)
 
-       self.channel_attention = ChannelAttentionModule(name, use_min)
-       self.spatial_attention = SpatialAttentionModule(name, use_min)
+        # Initialize fusion weights
+        self.fusion_weights = self.add_weight(
+            f"{self.name_layer}_fusion_weights",
+            shape=(2,),
+            initializer="ones",
+            trainable=True,
+        )
 
-       # Initialize fusion weights
-       self.fusion_weights = self.add_weight(
-           f"{self.name_layer}_fusion_weights",
-           shape=(2,),
-           initializer='ones',
-           trainable=True
-       )
+    def get_config(self) -> dict:
 
-   def get_config(self) -> dict:
+        return {"name": self.name_layer, "use_min": self.use_min}
 
-       return {'name': self.name_layer, 'use_min': self.use_min}
+    def call(self, inputs: tf.Tensor) -> tf.Tensor:
+        """
+        Applies CBAM attention to the input tensor.
 
-   def call(self, inputs: tf.Tensor) -> tf.Tensor:
+        Args:
+            inputs (tf.Tensor): Input tensor.
 
-       """
-       Applies CBAM attention to the input tensor.
+        Returns:
+            tf.Tensor: CBAM attended tensor.
+        """
 
-       Args:
-           inputs (tf.Tensor): Input tensor.
+        local_channel_att = self.channel_attention(inputs)
+        local_spatial_att = self.spatial_attention(inputs)
+        local_att = (local_channel_att * local_spatial_att) + local_channel_att
 
-       Returns:
-           tf.Tensor: CBAM attended tensor.
-       """
+        local_att = tf.expand_dims(local_att, axis=-1)
+        x = tf.expand_dims(inputs, axis=-1)
 
-       local_channel_att = self.channel_attention(inputs)
-       local_spatial_att = self.spatial_attention(inputs)
-       local_att = (local_channel_att * local_spatial_att) + local_channel_att  
+        all_feature_maps = tf.concat([local_att, x], axis=-1)
 
-       local_att = tf.expand_dims(local_att, axis=-1) 
-       x = tf.expand_dims(inputs, axis=-1) 
+        weights = tf.reshape(
+            tf.nn.softmax(self.fusion_weights, axis=-1), (1, 1, 1, 1, 2)
+        )
+        fused_feature_maps = tf.reduce_sum(all_feature_maps * weights, axis=-1)
 
-       all_feature_maps = tf.concat([local_att, x], axis=-1)
-
-       weights = tf.reshape(tf.nn.softmax(self.fusion_weights, axis=-1), (1, 1, 1, 1, 2))
-       fused_feature_maps = tf.reduce_sum(all_feature_maps * weights, axis=-1)
-
-       return fused_feature_maps
+        return fused_feature_maps

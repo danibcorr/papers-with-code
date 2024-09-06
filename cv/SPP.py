@@ -1,34 +1,28 @@
-# --------------------------------------------------------------------------------------------
-# LIBRARIES
-# --------------------------------------------------------------------------------------------
-
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 
 # --------------------------------------------------------------------------------------------
-# CLASS DEFINITIONS
 # https://github.com/yhenon/keras-spp
 # https://arxiv.org/pdf/1406.4729.pdf
 # --------------------------------------------------------------------------------------------
 
-@keras.saving.register_keras_serializable(package='SPP')
-class SpatialPyramidPooling(layers.Layer):
 
+@keras.saving.register_keras_serializable(package="SPP")
+class SpatialPyramidPooling(layers.Layer):
     """
     Spatial Pyramid Pooling layer implementation based on the paper:
     "Spatial Pyramid Pooling in Deep Convolutional Networks for Image Classification" by K. He et al.
-    
+
     Args:
         name (str): Name of the layer.
         pool_list (list): List of pooling sizes.
     """
 
     def __init__(self, name: str, pool_list: list, **kwargs):
-
         """
         Initializes the SpatialPyramidPooling layer.
-        
+
         Args:
             name (str): Name of the layer.
             pool_list (list): List of pooling sizes.
@@ -40,27 +34,27 @@ class SpatialPyramidPooling(layers.Layer):
         self.pool_list = pool_list
         self.num_outputs_per_channel = sum([i * i for i in pool_list])
         self.norm = layers.LayerNormalization(name=self.name_layer + "_layernorm")
-        self.activation = layers.Activation('gelu', name=self.name_layer + "_activation")
+        self.activation = layers.Activation(
+            "gelu", name=self.name_layer + "_activation"
+        )
 
     def get_config(self) -> dict:
-
         """
         Returns the configuration of the layer.
-        
+
         Returns:
             dict: Configuration of the layer.
         """
 
-        return {'name': self.name_layer, 'pool_list': self.pool_list}
+        return {"name": self.name_layer, "pool_list": self.pool_list}
 
     def call(self, x: tf.Tensor) -> tf.Tensor:
-
         """
         Calls the SpatialPyramidPooling layer.
-        
+
         Args:
             x (tf.Tensor): Input tensor to the layer.
-        
+
         Returns:
             tf.Tensor: Output tensor of the layer.
         """
@@ -68,8 +62,8 @@ class SpatialPyramidPooling(layers.Layer):
         input_shape = tf.shape(x)
 
         # Calculate the row and column lengths for each pooling size
-        row_length = [tf.cast(input_shape[1], 'float32') / i for i in self.pool_list]
-        col_length = [tf.cast(input_shape[2], 'float32') / i for i in self.pool_list]
+        row_length = [tf.cast(input_shape[1], "float32") / i for i in self.pool_list]
+        col_length = [tf.cast(input_shape[2], "float32") / i for i in self.pool_list]
 
         outputs = []
 

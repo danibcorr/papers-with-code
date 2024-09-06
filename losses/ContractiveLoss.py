@@ -1,16 +1,13 @@
-# --------------------------------------------------------------------------------------------
-# LIBRARIES
-# --------------------------------------------------------------------------------------------
-
 import tensorflow as tf
 
 # --------------------------------------------------------------------------------------------
-# FUNCTION DEFINITIONS
 # https://arxiv.org/pdf/1412.5068v4.pdf
 # --------------------------------------------------------------------------------------------
 
-def contractive_loss(x: tf.Tensor, x_hat: tf.Tensor, encoder: tf.keras.Model, lam: float = 1e-4) -> tf.Tensor:
 
+def contractive_loss(
+    x: tf.Tensor, x_hat: tf.Tensor, encoder: tf.keras.Model, lam: float = 1e-4
+) -> tf.Tensor:
     """
     This function computes the contractive loss for an autoencoder.
 

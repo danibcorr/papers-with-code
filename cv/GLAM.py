@@ -1,21 +1,17 @@
-# --------------------------------------------------------------------------------------------
-# LIBRARIES
-# --------------------------------------------------------------------------------------------
-
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
+
 from .APS import CircularPad
 from .CBAM import GlobalMinPooling2D, ChannelAttentionModule, SpatialAttentionModule
 
 # --------------------------------------------------------------------------------------------
-# CLASS DEFINITIONS
 # https://arxiv.org/abs/2107.08000
 # --------------------------------------------------------------------------------------------
 
-@keras.saving.register_keras_serializable(package='GlobalChannelAttention')
-class GlobalChannelAttention(layers.Layer):
 
+@keras.saving.register_keras_serializable(package="GlobalChannelAttention")
+class GlobalChannelAttention(layers.Layer):
     """
     Global channel attention module.
 
@@ -28,31 +24,29 @@ class GlobalChannelAttention(layers.Layer):
 
         super(GlobalChannelAttention, self).__init__()
 
-        assert (kernel_size % 2 == 0), "Kernel size must be even."
-        
+        assert kernel_size % 2 == 0, "Kernel size must be even."
+
         self.in_channels = in_channels
         self.kernel_size = kernel_size
         self.conv = layers.Conv2D(filters=1, kernel_size=kernel_size, padding="same")
-    
+
     def get_config(self) -> dict:
-        
         """
         Returns the configuration of the layer.
-        
+
         Returns:
             dict: Configuration of the layer.
         """
 
-        return {'in_channels': self.in_channels, 'kernel_size': self.kernel_size}
+        return {"in_channels": self.in_channels, "kernel_size": self.kernel_size}
 
     def call(self, x: tf.Tensor) -> tf.Tensor:
-
         """
         Forward pass of the global channel attention module.
 
         Args:
             x (tf.Tensor): Input tensor.
-            
+
         Returns:
             tf.Tensor: Output tensor after applying global channel attention.
         """
@@ -63,9 +57,9 @@ class GlobalChannelAttention(layers.Layer):
 
         return x * att + x
 
-@keras.saving.register_keras_serializable(package='LocalChannelAttention')
-class LocalChannelAttention(layers.Layer):
 
+@keras.saving.register_keras_serializable(package="LocalChannelAttention")
+class LocalChannelAttention(layers.Layer):
     """
     Local channel attention module.
 
@@ -77,30 +71,28 @@ class LocalChannelAttention(layers.Layer):
     def __init__(self, in_channels: int, kernel_size: int):
 
         super(LocalChannelAttention, self).__init__()
-        
+
         self.in_channels = in_channels
         self.kernel_size = kernel_size
         self.conv = layers.Conv2D(filters=1, kernel_size=kernel_size, padding="same")
-    
+
     def get_config(self) -> dict:
-        
         """
         Returns the configuration of the layer.
-        
+
         Returns:
             dict: Configuration of the layer.
         """
 
-        return {'in_channels': self.in_channels, 'kernel_size': self.kernel_size}
+        return {"in_channels": self.in_channels, "kernel_size": self.kernel_size}
 
     def call(self, x: tf.Tensor) -> tf.Tensor:
-
         """
         Forward pass of the local channel attention module.
 
         Args:
             x (tf.Tensor): Input tensor.
-            
+
         Returns:
             tf.Tensor: Output tensor after applying local channel attention.
         """
@@ -111,9 +103,9 @@ class LocalChannelAttention(layers.Layer):
 
         return x * att + x
 
-@keras.saving.register_keras_serializable(package='GlobalSpatialAttention')
-class GlobalSpatialAttention(layers.Layer):
 
+@keras.saving.register_keras_serializable(package="GlobalSpatialAttention")
+class GlobalSpatialAttention(layers.Layer):
     """
     Global spatial attention module.
 
@@ -125,30 +117,33 @@ class GlobalSpatialAttention(layers.Layer):
     def __init__(self, in_channels: int, num_reduced_channels: int):
 
         super(GlobalSpatialAttention, self).__init__()
-        
+
         self.in_channels = in_channels
         self.num_reduced_channels = num_reduced_channels
-        self.conv = layers.Conv2D(filters=num_reduced_channels, kernel_size=1, padding="same")
-        
+        self.conv = layers.Conv2D(
+            filters=num_reduced_channels, kernel_size=1, padding="same"
+        )
+
     def get_config(self) -> dict:
-        
         """
         Returns the configuration of the layer.
-        
+
         Returns:
             dict: Configuration of the layer.
         """
 
-        return {'in_channels': self.in_channels, 'num_reduced_channels': self.num_reduced_channels}
+        return {
+            "in_channels": self.in_channels,
+            "num_reduced_channels": self.num_reduced_channels,
+        }
 
     def call(self, x: tf.Tensor) -> tf.Tensor:
-
         """
         Forward pass of the global spatial attention module.
 
         Args:
             x (tf.Tensor): Input tensor.
-            
+
         Returns:
             tf.Tensor: Output tensor after applying global spatial attention.
         """
@@ -159,9 +154,9 @@ class GlobalSpatialAttention(layers.Layer):
 
         return x * att + x
 
-@keras.saving.register_keras_serializable(package='LocalSpatialAttention')
-class LocalSpatialAttention(layers.Layer):
 
+@keras.saving.register_keras_serializable(package="LocalSpatialAttention")
+class LocalSpatialAttention(layers.Layer):
     """
     Local spatial attention module.
 
@@ -173,43 +168,50 @@ class LocalSpatialAttention(layers.Layer):
     def __init__(self, in_channels: int, num_reduced_channels: int):
 
         super(LocalSpatialAttention, self).__init__()
-        
+
         self.in_channels = in_channels
         self.num_reduced_channels = num_reduced_channels
-        self.conv_3x3 = layers.Conv2D(filters=num_reduced_channels, kernel_size=3, padding="same", dilation_rate=1)
-        self.conv_5x5 = layers.Conv2D(filters=num_reduced_channels, kernel_size=5, padding="same", dilation_rate=3)
-        self.conv_7x7 = layers.Conv2D(filters=num_reduced_channels, kernel_size=7, padding="same", dilation_rate=5)
-        
+        self.conv_3x3 = layers.Conv2D(
+            filters=num_reduced_channels, kernel_size=3, padding="same", dilation_rate=1
+        )
+        self.conv_5x5 = layers.Conv2D(
+            filters=num_reduced_channels, kernel_size=5, padding="same", dilation_rate=3
+        )
+        self.conv_7x7 = layers.Conv2D(
+            filters=num_reduced_channels, kernel_size=7, padding="same", dilation_rate=5
+        )
+
     def get_config(self) -> dict:
-        
         """
         Returns the configuration of the layer.
-        
+
         Returns:
             dict: Configuration of the layer.
         """
 
-        return {'in_channels': self.in_channels, 'num_reduced_channels': self.num_reduced_channels}
+        return {
+            "in_channels": self.in_channels,
+            "num_reduced_channels": self.num_reduced_channels,
+        }
 
     def call(self, x: tf.Tensor) -> tf.Tensor:
-
         """
         Forward pass of the local spatial attention module.
 
         Args:
             x (tf.Tensor): Input tensor.
-            
+
         Returns:
             tf.Tensor: Output tensor after applying local spatial attention.
         """
 
         att = self.conv_3x3(x) + self.conv_5x5(x) + self.conv_7x7(x)
-        
+
         return x * att + x
 
-@keras.saving.register_keras_serializable(package='GLAM')
-class GLAM(layers.Layer):
 
+@keras.saving.register_keras_serializable(package="GLAM")
+class GLAM(layers.Layer):
     """
     Global-local attention module.
 
@@ -221,10 +223,17 @@ class GLAM(layers.Layer):
         use_cbam_local_attention (bool): Whether to use CBAM local attention. Defaults to False.
     """
 
-    def __init__(self, in_channels: int, num_reduced_channels: int, kernel_size: int, name: str = "GLAM", use_cbam_local_attention: bool = False):
+    def __init__(
+        self,
+        in_channels: int,
+        num_reduced_channels: int,
+        kernel_size: int,
+        name: str = "GLAM",
+        use_cbam_local_attention: bool = False,
+    ):
 
         super(GLAM, self).__init__(name=name)
-        
+
         self.in_channels = in_channels
         self.num_reduced_channels = num_reduced_channels
         self.kernel_size = kernel_size
@@ -233,40 +242,51 @@ class GLAM(layers.Layer):
 
         if use_cbam_local_attention:
 
-            self.local_channel_att = LocalChannelAttention(in_channels=in_channels, kernel_size=kernel_size)
-            self.local_spatial_att = LocalSpatialAttention(in_channels=in_channels, num_reduced_channels=num_reduced_channels)
+            self.local_channel_att = LocalChannelAttention(
+                in_channels=in_channels, kernel_size=kernel_size
+            )
+            self.local_spatial_att = LocalSpatialAttention(
+                in_channels=in_channels, num_reduced_channels=num_reduced_channels
+            )
 
         else:
 
-            self.global_channel_att = GlobalChannelAttention(in_channels=in_channels, kernel_size=kernel_size)
-            self.global_spatial_att = GlobalSpatialAttention(in_channels=in_channels, num_reduced_channels=num_reduced_channels)
-            
+            self.global_channel_att = GlobalChannelAttention(
+                in_channels=in_channels, kernel_size=kernel_size
+            )
+            self.global_spatial_att = GlobalSpatialAttention(
+                in_channels=in_channels, num_reduced_channels=num_reduced_channels
+            )
+
     def get_config(self) -> dict:
-        
         """
         Returns the configuration of the layer.
-        
+
         Returns:
             dict: Configuration of the layer.
         """
 
-        return {'in_channels': self.in_channels, 'num_reduced_channels': self.num_reduced_channels,
-                'kernel_size': self.kernel_size, 'name': self.name, 'use_cbam_local_attention': self.use_cbam_local_attention}
+        return {
+            "in_channels": self.in_channels,
+            "num_reduced_channels": self.num_reduced_channels,
+            "kernel_size": self.kernel_size,
+            "name": self.name,
+            "use_cbam_local_attention": self.use_cbam_local_attention,
+        }
 
     def call(self, x: tf.Tensor) -> tf.Tensor:
-
         """
         Forward pass of the GLAM module.
 
         Args:
             x (tf.Tensor): Input tensor.
-            
+
         Returns:
             tf.Tensor: Output tensor after applying global-local attention.
         """
-        
+
         if not self.use_cbam_local_attention:
 
             return self.global_channel_att(x) + self.global_spatial_att(x)
-        
+
         return self.local_channel_att(x) + self.local_spatial_att(x)

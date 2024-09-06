@@ -1,17 +1,12 @@
-# --------------------------------------------------------------------------------------------
-# LIBRARIES
-# --------------------------------------------------------------------------------------------
-
 import tensorflow as tf
 
 # --------------------------------------------------------------------------------------------
-# CLASS DEFINITIONS
 # https://github.com/sayakpaul/Adaptive-Gradient-Clipping
 # https://arxiv.org/abs/2102.06171
 # --------------------------------------------------------------------------------------------
 
-def compute_norm(x: tf.Tensor, axis, keepdims: bool) -> tf.Tensor:
 
+def compute_norm(x: tf.Tensor, axis, keepdims: bool) -> tf.Tensor:
     """
     Computes the norm of the input tensor along the specified axis.
 
@@ -24,10 +19,10 @@ def compute_norm(x: tf.Tensor, axis, keepdims: bool) -> tf.Tensor:
         tf.Tensor: Norm of the input tensor.
     """
 
-    return tf.math.reduce_sum(x ** 2, axis=axis, keepdims=keepdims) ** 0.5
+    return tf.math.reduce_sum(x**2, axis=axis, keepdims=keepdims) ** 0.5
+
 
 def unitwise_norm(x: tf.Tensor) -> tf.Tensor:
-
     """
     Computes the unit-wise norm of the input tensor.
 
@@ -61,8 +56,13 @@ def unitwise_norm(x: tf.Tensor) -> tf.Tensor:
 
     return compute_norm(x, axis, keepdims)
 
-def adaptive_clip_grad(parameters: list or tf.Tensor, gradients: list or tf.Tensor, clip_factor: float = 0.01, eps: float = 1e-3) -> list or tf.Tensor:
 
+def adaptive_clip_grad(
+    parameters: list or tf.Tensor,
+    gradients: list or tf.Tensor,
+    clip_factor: float = 0.01,
+    eps: float = 1e-3,
+) -> list or tf.Tensor:
     """
     Applies adaptive gradient clipping to the gradients.
 
@@ -78,7 +78,7 @@ def adaptive_clip_grad(parameters: list or tf.Tensor, gradients: list or tf.Tens
 
     new_grads = []
 
-    for (params, grads) in zip(parameters, gradients):
+    for params, grads in zip(parameters, gradients):
 
         p_norm = unitwise_norm(params)
         max_norm = tf.math.maximum(p_norm, eps) * clip_factor
